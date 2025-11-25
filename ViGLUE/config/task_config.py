@@ -96,7 +96,7 @@ TASK_CONFIG = {
         input_columns=("sentence",),
         num_labels=3,  # positive, neutral, negative
         task_type="sentiment",
-        metrics=["accuracy"],
+        metrics=["accuracy", "f1"],
         is_regression=False,
     ),
     "vsmec": TaskConfig(
