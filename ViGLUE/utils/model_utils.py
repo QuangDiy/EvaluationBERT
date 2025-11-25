@@ -3,6 +3,7 @@ import torch
 from typing import Tuple, Optional
 from transformers import (
     AutoTokenizer,
+    AutoConfig,
     AutoModelForSequenceClassification,
     PreTrainedTokenizer,
     PreTrainedModel,
@@ -40,6 +41,17 @@ def load_model_and_tokenizer(
     
     logger.info(f"Loading model: {model_name_or_path}")
     
+    # Load config first to set default values
+    config = AutoConfig.from_pretrained(
+        model_name_or_path,
+        cache_dir=cache_dir,
+    )
+    
+    # Set classifier_dropout if not present (required for ModernBERT)
+    if not hasattr(config, 'classifier_dropout') or config.classifier_dropout is None:
+        config.classifier_dropout = 0.1
+        logger.info(f"Set classifier_dropout to default value: 0.1")
+    
     if task_config.is_regression:
         num_labels = 1
         problem_type = "regression"
@@ -47,11 +59,13 @@ def load_model_and_tokenizer(
         num_labels = task_config.num_labels
         problem_type = "single_label_classification"
     
+    config.num_labels = num_labels
+    config.problem_type = problem_type
+    
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name_or_path,
-        num_labels=num_labels,
+        config=config,
         cache_dir=cache_dir,
-        problem_type=problem_type,
         ignore_mismatched_sizes=True, 
     )
     

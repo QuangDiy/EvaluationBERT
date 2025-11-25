@@ -11,30 +11,6 @@ A comprehensive framework for evaluating BERT models on the Vietnamese General L
 - **Comprehensive Metrics**: Accuracy, F1, Matthews Correlation, Pearson/Spearman correlations
 - **Well-Structured**: Modular design with separate config, utils, and trainers modules
 
-## Project Structure
-
-```
-ViGLUE/
-├── config/
-│   ├── __init__.py
-│   ├── task_config.py          # Task-specific configurations
-│   └── training_config.py      # Training hyperparameters
-├── utils/
-│   ├── __init__.py
-│   ├── data_loader.py          # Dataset loading utilities
-│   ├── model_utils.py          # Model initialization
-│   ├── metrics.py              # Evaluation metrics
-│   └── logging_utils.py        # Logging and result saving
-├── trainers/
-│   ├── __init__.py
-│   ├── base_trainer.py         # Training logic
-│   └── evaluator.py            # Evaluation logic
-├── run_viglue.py               # Main fine-tuning script
-├── run_baseline.py             # Baseline evaluation script
-├── run_experiments.py          # Batch experiments script
-├── requirements.txt            # Python dependencies
-└── README.md                   # This file
-```
 
 ## Installation
 
