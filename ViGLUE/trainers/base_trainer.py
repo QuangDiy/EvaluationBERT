@@ -53,6 +53,13 @@ class ViGLUETrainer:
         primary_metric = get_primary_metric(self.task_config)
         metric_for_best_model = f"eval_{primary_metric}"
         
+        save_strategy = self.training_config.save_strategy
+        load_best_model_at_end = self.training_config.load_best_model_at_end
+        
+        if not self.training_config.save_model:
+            save_strategy = "no"
+            load_best_model_at_end = False
+        
         training_args = TrainingArguments(
             output_dir=self.training_config.output_dir,
             overwrite_output_dir=self.training_config.overwrite_output_dir,
@@ -70,12 +77,12 @@ class ViGLUETrainer:
             warmup_steps=self.training_config.warmup_steps,
             
             eval_strategy=self.training_config.evaluation_strategy,
-            save_strategy=self.training_config.save_strategy,
+            save_strategy=save_strategy,
             save_steps=self.training_config.save_steps,
             eval_steps=self.training_config.eval_steps,
             logging_steps=self.training_config.logging_steps,
             save_total_limit=self.training_config.save_total_limit,
-            load_best_model_at_end=self.training_config.load_best_model_at_end,
+            load_best_model_at_end=load_best_model_at_end,
             metric_for_best_model=metric_for_best_model,
             greater_is_better=self.training_config.greater_is_better,
             
@@ -126,7 +133,8 @@ class ViGLUETrainer:
         
         train_result = self.trainer.train()
         
-        self.trainer.save_model()
+        if self.training_config.save_model:
+            self.trainer.save_model()
         
         metrics = train_result.metrics
         logger.info(f"Training completed. Metrics: {metrics}")

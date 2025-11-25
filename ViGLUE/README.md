@@ -90,6 +90,7 @@ python run_viglue.py \
 - `--fp16`: Use mixed precision training
 - `--quick_test`: Quick test mode (1 epoch)
 - `--output_dir`: Output directory for results
+- `--no_save_model`: Do not save model checkpoints (save only metrics)
 
 ### 2. Baseline Evaluation (No Fine-tuning)
 

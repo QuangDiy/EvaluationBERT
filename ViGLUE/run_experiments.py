@@ -115,6 +115,11 @@ def parse_args():
         help="Cache directory"
     )
     parser.add_argument(
+        "--no_save_model",
+        action="store_true",
+        help="Do not save model checkpoints"
+    )
+    parser.add_argument(
         "--parallel",
         action="store_true",
         help="Run experiments in parallel (experimental)"
@@ -177,6 +182,8 @@ def run_single_experiment(
         cmd.append("--quick_test")
     if args.cache_dir:
         cmd.extend(["--cache_dir", args.cache_dir])
+    if args.no_save_model:
+        cmd.append("--no_save_model")
     
     logger.info(f"Command: {' '.join(cmd)}")
     

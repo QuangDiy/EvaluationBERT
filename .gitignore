@@ -178,3 +178,7 @@ CLAUDE.md
 # model
 downloaded_model/
 downstream_tasks/
+
+# results
+results/
+outputs/

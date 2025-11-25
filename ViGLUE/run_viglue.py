@@ -181,6 +181,11 @@ def parse_args():
         help="Overwrite output directory"
     )
     parser.add_argument(
+        "--no_save_model",
+        action="store_true",
+        help="Do not save model checkpoints"
+    )
+    parser.add_argument(
         "--quick_test", 
         action="store_true", 
         help="Quick test with reduced settings"
@@ -265,7 +270,9 @@ def main():
         do_train=args.do_train,
         do_eval=args.do_eval,
         do_predict=args.do_predict,
+        do_predict=args.do_predict,
         overwrite_output_dir=args.overwrite_output_dir,
+        save_model=not args.no_save_model,
     )
     
     if args.quick_test:

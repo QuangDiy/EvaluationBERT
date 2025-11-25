@@ -49,6 +49,7 @@ class TrainingConfig:
     do_eval: bool = True
     do_predict: bool = False
     overwrite_output_dir: bool = True
+    save_model: bool = True
     
     early_stopping_patience: int = 3
     early_stopping_threshold: float = 0.0
