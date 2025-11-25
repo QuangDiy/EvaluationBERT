@@ -69,7 +69,7 @@ class ViGLUETrainer:
             warmup_ratio=self.training_config.warmup_ratio,
             warmup_steps=self.training_config.warmup_steps,
             
-            evaluation_strategy=self.training_config.evaluation_strategy,
+            eval_strategy=self.training_config.evaluation_strategy,
             save_strategy=self.training_config.save_strategy,
             save_steps=self.training_config.save_steps,
             eval_steps=self.training_config.eval_steps,
