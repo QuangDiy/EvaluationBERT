@@ -1,18 +1,30 @@
 #!/bin/bash
 
 MODEL="${MODEL:-QuangDuy/modernbert-tiny-checkpoint-55000ba}"
-BASE_OUTPUT_DIR="${OUTPUT_DIR:-./all_tasks_results}"
 EPOCHS="${EPOCHS:-3}"
 TRAIN_BATCH="${TRAIN_BATCH:-16}"
 SEED="${SEED:-42}"
 
-TASKS=(mnli qnli rte vnrte wnli sst2 vsfc vsmec mrpc qqp stsb cola vtoc)
+MODEL_NAME=$(basename "$MODEL")
+TIMESTAMP=$(date +"%Y%m%d_$SEED")
+RESULTS_DIR="${RESULTS_DIR:-./results/all_tasks_${MODEL_NAME}_${TIMESTAMP}}"
 
-mkdir -p $BASE_OUTPUT_DIR
+echo "=========================================="
+echo "ViGLUE All Tasks Training"
+echo "Model: $MODEL"
+echo "Output: $RESULTS_DIR"
+echo "=========================================="
 
-for task in "${TASKS[@]}"; do
-    TASK_OUTPUT_DIR="$BASE_OUTPUT_DIR/$task"
-    
+mkdir -p "$RESULTS_DIR"
+
+# Task categorization
+GLUE_TASKS=(mnli qnli rte wnli sst2 qqp stsb cola mrpc)
+TASKS_WITH_TEST=(vsfc vsmec)
+TASKS_NO_TEST=(vnrte vtoc)
+
+# Train and evaluate GLUE tasks
+for task in "${GLUE_TASKS[@]}"; do
+    echo "Training $task (GLUE task)"
     python ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
@@ -21,7 +33,41 @@ for task in "${TASKS[@]}"; do
         --num_train_epochs $EPOCHS \
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
-        --output_dir $TASK_OUTPUT_DIR \
+        --output_dir "$RESULTS_DIR/$task" \
         --overwrite_output_dir
 done
 
+# Train and evaluate tasks with test set
+for task in "${TASKS_WITH_TEST[@]}"; do
+    echo "Training $task (with test set)"
+    python ./ViGLUE/run_viglue.py \
+        --task $task \
+        --model_name_or_path $MODEL \
+        --do_train \
+        --do_eval \
+        --num_train_epochs $EPOCHS \
+        --per_device_train_batch_size $TRAIN_BATCH \
+        --seed $SEED \
+        --output_dir "$RESULTS_DIR/$task" \
+        --overwrite_output_dir
+done
+
+# Train and test tasks without test set (use validation as test)
+for task in "${TASKS_NO_TEST[@]}"; do
+    echo "Training $task (validation as test)"
+    python ./ViGLUE/run_viglue.py \
+        --task $task \
+        --model_name_or_path $MODEL \
+        --do_train \
+        --use_validation_as_test \
+        --num_train_epochs $EPOCHS \
+        --per_device_train_batch_size $TRAIN_BATCH \
+        --seed $SEED \
+        --output_dir "$RESULTS_DIR/$task" \
+        --overwrite_output_dir
+done
+
+echo "=========================================="
+echo "All tasks completed!"
+echo "Results saved to: $RESULTS_DIR"
+echo "=========================================="

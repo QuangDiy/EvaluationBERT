@@ -19,8 +19,8 @@ echo "=========================================="
 mkdir -p "$RESULTS_DIR"
 mkdir -p "$SUBMISSION_DIR"
 
-# GLUE_TASKS=(mnli qnli rte wnli sst2 qqp stsb cola mrpc)
-GLUE_TASKS=(qqp stsb cola mrpc)
+# GLUE_TASKS=(qqp stsb cola mrpc)
+GLUE_TASKS=(mnli qnli rte wnli sst2 qqp stsb cola mrpc)
 TASKS_WITH_TEST=(vsfc vsmec)
 TASKS_NO_TEST=(vnrte vtoc)
 

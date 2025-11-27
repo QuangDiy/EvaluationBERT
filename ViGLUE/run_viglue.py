@@ -202,6 +202,11 @@ def parse_args():
         default=None, 
         help="Maximum evaluation samples (for testing)"
     )
+    parser.add_argument(
+        "--use_validation_as_test",
+        action="store_true",
+        help="Use validation set as test set (no evaluation during training)"
+    )
     
     args = parser.parse_args()
 
@@ -282,6 +287,11 @@ def main():
         training_config.eval_steps = 100
         training_config.logging_steps = 50
     
+    if args.use_validation_as_test:
+        logger.info("Using validation as test set - disabling evaluation during training")
+        training_config.evaluation_strategy = "no"
+        training_config.do_eval = False
+    
     save_config(training_config, output_dir, "training_config.json")
     save_config(vars(args), output_dir, "args.json")
     
@@ -343,6 +353,15 @@ def main():
             test_metrics = trainer.evaluate(dataset_split="test")
             results["test"] = test_metrics
             print_results(test_metrics, "Test Results")
+    
+    if args.use_validation_as_test:
+        logger.info("Evaluating on validation set (used as test)...")
+        if "validation" in dataset:
+            test_metrics = trainer.evaluate(dataset_split="validation")
+            results["test"] = test_metrics
+            print_results(test_metrics, "Test Results (on validation set)")
+        else:
+            logger.warning("Validation set not found for testing")
 
     if args.do_predict:
         logger.info("Generating predictions...")
