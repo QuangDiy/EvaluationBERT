@@ -34,7 +34,8 @@ for task in "${TASKS_NO_TEST[@]}"; do
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
-        --overwrite_output_dir
+        --overwrite_output_dir \
+        --no_save_model
 done
 
 # Train and evaluate tasks with test set
@@ -49,7 +50,8 @@ for task in "${TASKS_WITH_TEST[@]}"; do
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
-        --overwrite_output_dir
+        --overwrite_output_dir \
+        --no_save_model
 done
 
 # Train and evaluate GLUE tasks
@@ -64,5 +66,6 @@ for task in "${GLUE_TASKS[@]}"; do
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
-        --overwrite_output_dir
+        --overwrite_output_dir \
+        --no_save_model
 done
