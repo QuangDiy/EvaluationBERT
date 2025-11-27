@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MODEL="${MODEL:-bert-base-multilingual-cased}"
+MODEL="${MODEL:-QuangDuy/modernbert-tiny-checkpoint-55000ba}"
 BASE_OUTPUT_DIR="${OUTPUT_DIR:-./all_tasks_results}"
 EPOCHS="${EPOCHS:-3}"
 TRAIN_BATCH="${TRAIN_BATCH:-16}"
@@ -13,7 +13,7 @@ mkdir -p $BASE_OUTPUT_DIR
 for task in "${TASKS[@]}"; do
     TASK_OUTPUT_DIR="$BASE_OUTPUT_DIR/$task"
     
-    python run_viglue.py \
+    python ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \

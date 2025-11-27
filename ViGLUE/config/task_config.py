@@ -14,6 +14,10 @@ class TaskConfig:
         task_type: str,
         metrics: List[str],
         is_regression: bool = False,
+        submission_name: Optional[str] = None,
+        test_splits: Optional[List[str]] = None,
+        label_list: Optional[List[str]] = None,
+        use_validation_as_test: bool = False,
     ):
         self.name = name
         self.dataset_name = dataset_name
@@ -23,6 +27,10 @@ class TaskConfig:
         self.task_type = task_type
         self.metrics = metrics
         self.is_regression = is_regression
+        self.submission_name = submission_name
+        self.test_splits = test_splits or ["test"]
+        self.label_list = label_list
+        self.use_validation_as_test = use_validation_as_test
 
 
 TASK_CONFIG = {
@@ -36,6 +44,9 @@ TASK_CONFIG = {
         task_type="nli",
         metrics=["accuracy"],
         is_regression=False,
+        submission_name="MNLI",
+        test_splits=["test", "test_mismatched"],
+        label_list=["entailment", "neutral", "contradiction"],
     ),
     "qnli": TaskConfig(
         name="qnli",
@@ -46,6 +57,8 @@ TASK_CONFIG = {
         task_type="nli",
         metrics=["accuracy"],
         is_regression=False,
+        submission_name="QNLI",
+        label_list=["entailment", "not_entailment"],
     ),
     "rte": TaskConfig(
         name="rte",
@@ -56,6 +69,8 @@ TASK_CONFIG = {
         task_type="nli",
         metrics=["accuracy"],
         is_regression=False,
+        submission_name="RTE",
+        label_list=["entailment", "not_entailment"],
     ),
     "vnrte": TaskConfig(
         name="vnrte",
@@ -66,16 +81,20 @@ TASK_CONFIG = {
         task_type="nli",
         metrics=["accuracy"],
         is_regression=False,
+        use_validation_as_test=True,
+        label_list=["entailment", "not_entailment"],
     ),
     "wnli": TaskConfig(
         name="wnli",
         dataset_name="tmnam20/ViGLUE",
         dataset_config="wnli",
         input_columns=("sentence1", "sentence2"),
-        num_labels=2,  # entailment, not_entailment
+        num_labels=2,  # not_entailment, entailment
         task_type="nli",
         metrics=["accuracy"],
         is_regression=False,
+        submission_name="WNLI",
+        label_list=["0", "1"],
     ),
     
     # Sentiment Analysis Tasks
@@ -88,6 +107,8 @@ TASK_CONFIG = {
         task_type="sentiment",
         metrics=["accuracy"],
         is_regression=False,
+        submission_name="SST-2",
+        label_list=["0", "1"],  # 0=negative, 1=positive (GLUE format)
     ),
     "vsfc": TaskConfig(
         name="vsfc",
@@ -120,6 +141,8 @@ TASK_CONFIG = {
         task_type="similarity",
         metrics=["accuracy", "f1"],
         is_regression=False,
+        submission_name="MRPC",
+        label_list=["0", "1"],  # 0=not_equivalent, 1=equivalent (GLUE format)
     ),
     "qqp": TaskConfig(
         name="qqp",
@@ -130,6 +153,8 @@ TASK_CONFIG = {
         task_type="similarity",
         metrics=["accuracy", "f1"],
         is_regression=False,
+        submission_name="QQP",
+        label_list=["0", "1"],  # 0=not_duplicate, 1=duplicate (GLUE format)
     ),
     "stsb": TaskConfig(
         name="stsb",
@@ -140,6 +165,7 @@ TASK_CONFIG = {
         task_type="similarity",
         metrics=["pearson", "spearmanr"],
         is_regression=True,
+        submission_name="STS-B",
     ),
     
     # Single-Sentence Tasks
@@ -152,16 +178,19 @@ TASK_CONFIG = {
         task_type="acceptability",
         metrics=["matthews_correlation"],
         is_regression=False,
+        submission_name="CoLA",
+        label_list=["0", "1"],  # 0=unacceptable, 1=acceptable (GLUE format)
     ),
     "vtoc": TaskConfig(
         name="vtoc",
         dataset_name="tmnam20/ViGLUE",
         dataset_config="vtoc",
         input_columns=("sentence",),
-        num_labels=10,  # 10 topic categories
+        num_labels=15, 
         task_type="classification",
         metrics=["accuracy"],
         is_regression=False,
+        use_validation_as_test=True,
     ),
 }
 

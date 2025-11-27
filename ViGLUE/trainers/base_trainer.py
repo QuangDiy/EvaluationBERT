@@ -55,9 +55,18 @@ class ViGLUETrainer:
         
         save_strategy = self.training_config.save_strategy
         load_best_model_at_end = self.training_config.load_best_model_at_end
+        eval_strategy = self.training_config.evaluation_strategy
         
         if not self.training_config.save_model:
             save_strategy = "no"
+            load_best_model_at_end = False
+        
+        if self.task_config.use_validation_as_test:
+            logger.info(
+                f"Task {self.task_config.name} uses validation as test, "
+                f"disabling mid-training evaluation"
+            )
+            eval_strategy = "no"
             load_best_model_at_end = False
         
         training_args = TrainingArguments(
@@ -76,7 +85,7 @@ class ViGLUETrainer:
             warmup_ratio=self.training_config.warmup_ratio,
             warmup_steps=self.training_config.warmup_steps,
             
-            eval_strategy=self.training_config.evaluation_strategy,
+            eval_strategy=eval_strategy,
             save_strategy=save_strategy,
             save_steps=self.training_config.save_steps,
             eval_steps=self.training_config.eval_steps,

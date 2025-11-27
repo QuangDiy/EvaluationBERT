@@ -41,13 +41,11 @@ def load_model_and_tokenizer(
     
     logger.info(f"Loading model: {model_name_or_path}")
     
-    # Load config first to set default values
     config = AutoConfig.from_pretrained(
         model_name_or_path,
         cache_dir=cache_dir,
     )
     
-    # Set classifier_dropout if not present (required for ModernBERT)
     if not hasattr(config, 'classifier_dropout') or config.classifier_dropout is None:
         config.classifier_dropout = 0.1
         logger.info(f"Set classifier_dropout to default value: 0.1")

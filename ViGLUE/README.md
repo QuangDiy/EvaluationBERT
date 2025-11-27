@@ -1,20 +1,3 @@
-# ViGLUE Evaluation Framework
-
-A comprehensive framework for evaluating BERT models on the Vietnamese General Language Understanding Evaluation (ViGLUE) benchmark using HuggingFace Transformers.
-
-## Features
-
-- **13 ViGLUE Tasks**: Support for all tasks including MNLI, QNLI, RTE, VNRTE, WNLI, SST2, VSFC, VSMEC, MRPC, QQP, STS-B, CoLA, and VToC
-- **Multiple Evaluation Modes**: Fine-tuning, baseline (zero-shot), and batch experiments
-- **Robust Evaluation**: Multiple random seeds with mean/std aggregation
-- **Configurable Hyperparameters**: Batch size, learning rate, epochs, and more
-- **Comprehensive Metrics**: Accuracy, F1, Matthews Correlation, Pearson/Spearman correlations
-- **Well-Structured**: Modular design with separate config, utils, and trainers modules
-
-
-## Installation
-
-1. **Clone or navigate to the ViGLUE directory**:
    ```bash
    cd d:\workspace\EvaluationBERT\ViGLUE
    ```
@@ -200,27 +183,6 @@ python run_viglue.py \
     --do_train \
     --do_eval \
     --output_dir ./results/finetuned
-```
-
-### Robust Evaluation with Multiple Seeds
-
-Get statistically robust results:
-
-```bash
-python run_experiments.py \
-    --tasks mnli vnrte vsfc \
-    --seeds 42 123 456 789 2023 \
-    --model_name_or_path bert-base-multilingual-cased \
-    --num_train_epochs 4 \
-    --per_device_train_batch_size 32 \
-    --output_dir ./robust_results
-```
-
-## Dataset Information
-
-The framework uses the ViGLUE dataset from HuggingFace: [`tmnam20/ViGLUE`](https://huggingface.co/datasets/tmnam20/ViGLUE)
-
-### Task Statistics
 
 | Corpus | Train | Validation | Test | Metric | Domain |
 |--------|-------|------------|------|--------|--------|
