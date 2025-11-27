@@ -2,7 +2,7 @@
 
 # MODEL="${MODEL:-QuangDuy/modernbert-tiny-checkpoint-55000ba}"
 MODEL="${MODEL:-vinai/phobert-base}"
-BATCH_SIZE="${BATCH_SIZE:-16}"
+BATCH_SIZE="${BATCH_SIZE:-32}"
 SEED="${SEED:-42}"
 
 MODEL_NAME=$(basename "$MODEL")
@@ -19,7 +19,8 @@ echo "=========================================="
 mkdir -p "$RESULTS_DIR"
 mkdir -p "$SUBMISSION_DIR"
 
-GLUE_TASKS=(mnli qnli rte wnli sst2 qqp stsb cola mrpc)
+# GLUE_TASKS=(mnli qnli rte wnli sst2 qqp stsb cola mrpc)
+GLUE_TASKS=(qqp stsb cola mrpc)
 TASKS_WITH_TEST=(vsfc vsmec)
 TASKS_NO_TEST=(vnrte vtoc)
 

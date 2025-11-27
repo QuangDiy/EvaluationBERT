@@ -197,9 +197,8 @@ def main():
             
             print_results(results, f"Results for {task_name}")
             
-            task_output_dir = os.path.join(args.output_dir, task_name)
-            os.makedirs(task_output_dir, exist_ok=True)
-            save_results(results, task_output_dir, "baseline_results.json")
+            # Save individual task results in the main output directory
+            save_results(results, args.output_dir, "baseline_results.json")
             
         except Exception as e:
             logger.error(f"Error evaluating task {task_name}: {e}")
