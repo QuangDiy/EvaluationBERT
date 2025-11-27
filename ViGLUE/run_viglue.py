@@ -207,6 +207,11 @@ def parse_args():
         action="store_true",
         help="Use validation set as test set (no evaluation during training)"
     )
+    parser.add_argument(
+        "--no_timestamp_dir",
+        action="store_true",
+        help="Do not create timestamped subdirectory, use output_dir directly"
+    )
     
     args = parser.parse_args()
 
@@ -231,7 +236,15 @@ def main():
     
     set_seed(args.seed)
     
-    output_dir = create_output_dir(args.output_dir, args.task, args.seed)
+    # Create output directory
+    if args.no_timestamp_dir:
+        # Use the exact output_dir specified without creating subdirectories
+        output_dir = args.output_dir
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        # Create timestamped subdirectory (default behavior)
+        output_dir = create_output_dir(args.output_dir, args.task, args.seed)
+    
     args.output_dir = output_dir
     
     log_file = os.path.join(output_dir, "train.log")

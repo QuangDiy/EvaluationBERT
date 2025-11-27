@@ -69,7 +69,6 @@ class ViGLUETrainer:
             eval_strategy = "no"
             load_best_model_at_end = False
         
-        # Additional settings to prevent checkpoint saving
         save_safetensors = True
         save_on_each_node = False
         
@@ -158,17 +157,14 @@ class ViGLUETrainer:
         if self.training_config.save_model:
             self.trainer.save_model()
         else:
-            # Clean up any checkpoint directories that may have been created
             import shutil
             output_dir = self.training_config.output_dir
             if os.path.exists(output_dir):
                 for item in os.listdir(output_dir):
                     item_path = os.path.join(output_dir, item)
-                    # Remove checkpoint directories (checkpoint-*)
                     if os.path.isdir(item_path) and item.startswith('checkpoint-'):
                         logger.info(f"Removing checkpoint directory: {item_path}")
                         shutil.rmtree(item_path)
-                    # Remove model files if they exist
                     elif item in ['pytorch_model.bin', 'model.safetensors', 'config.json', 
                                   'training_args.bin', 'optimizer.pt', 'scheduler.pt',
                                   'trainer_state.json', 'rng_state.pth']:

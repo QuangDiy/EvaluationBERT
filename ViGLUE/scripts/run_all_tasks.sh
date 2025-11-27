@@ -35,7 +35,8 @@ for task in "${TASKS_NO_TEST[@]}"; do
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
         --overwrite_output_dir \
-        --no_save_model
+        --no_save_model \
+        --no_timestamp_dir
 done
 
 # Train and evaluate tasks with test set
@@ -51,7 +52,8 @@ for task in "${TASKS_WITH_TEST[@]}"; do
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
         --overwrite_output_dir \
-        --no_save_model
+        --no_save_model \
+        --no_timestamp_dir
 done
 
 # Train and evaluate GLUE tasks
@@ -67,5 +69,6 @@ for task in "${GLUE_TASKS[@]}"; do
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
         --overwrite_output_dir \
-        --no_save_model
+        --no_save_model \
+        --no_timestamp_dir
 done
