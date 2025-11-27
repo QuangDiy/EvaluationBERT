@@ -56,14 +56,14 @@ for task in "${TASKS_WITH_TEST[@]}"; do
         --no_timestamp_dir
 done
 
-# Train and evaluate GLUE tasks
+# Train and generate predictions for GLUE tasks
 for task in "${GLUE_TASKS[@]}"; do
-    echo "Training $task (GLUE task)"
+    echo "Training $task (GLUE task - will generate submission files)"
     python ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \
-        --do_eval \
+        --do_predict \
         --num_train_epochs $EPOCHS \
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \

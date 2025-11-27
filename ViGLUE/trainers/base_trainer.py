@@ -229,3 +229,61 @@ class ViGLUETrainer:
         logger.info(f"Saving model to {output_dir}")
         self.trainer.save_model(output_dir)
         self.tokenizer.save_pretrained(output_dir)
+    
+    def generate_submission_files(self, output_dir: Optional[str] = None) -> Dict[str, str]:
+        """
+        Generate GLUE submission files for test set(s).
+        
+        Args:
+            output_dir: Directory to save submission files
+            
+        Returns:
+            Dictionary mapping split name to submission file path
+        """
+        if output_dir is None:
+            output_dir = self.training_config.output_dir
+        
+        if not self.task_config.is_glue_task:
+            logger.warning(f"Task {self.task_config.name} is not a GLUE task")
+            return {}
+        
+        from utils.submission_utils import generate_tsv, get_submission_files_mapping
+        import numpy as np
+        
+        logger.info(f"Generating submission files for {self.task_config.name}")
+        
+        submission_files = {}
+        split_mapping = get_submission_files_mapping(self.task_config)
+        
+        for split_name, suffix in split_mapping.items():
+            if split_name not in self.dataset:
+                logger.warning(f"Split '{split_name}' not found in dataset, skipping")
+                continue
+            
+            logger.info(f"Generating predictions for {split_name}")
+            predict_dataset = self.dataset[split_name]
+            
+            predictions = self.trainer.predict(predict_dataset)
+            
+            if self.task_config.is_regression:
+                pred_labels = predictions.predictions.squeeze()
+            else:
+                pred_labels = np.argmax(predictions.predictions, axis=1)
+            
+            if "idx" in predict_dataset.column_names:
+                indices = predict_dataset["idx"]
+            else:
+                indices = list(range(len(predict_dataset)))
+            
+            tsv_path = generate_tsv(
+                predictions=pred_labels,
+                indices=indices,
+                task_config=self.task_config,
+                output_path=output_dir,
+                split_suffix=suffix,
+            )
+            
+            submission_files[split_name] = tsv_path
+            logger.info(f"Generated submission file: {tsv_path}")
+        
+        return submission_files

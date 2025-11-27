@@ -31,6 +31,11 @@ class TaskConfig:
         self.test_splits = test_splits or ["test"]
         self.label_list = label_list
         self.use_validation_as_test = use_validation_as_test
+    
+    @property
+    def is_glue_task(self) -> bool:
+        """Check if this is a GLUE task (requires submission files)."""
+        return self.submission_name is not None
 
 
 TASK_CONFIG = {

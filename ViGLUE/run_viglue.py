@@ -361,7 +361,8 @@ def main():
             results["validation"] = eval_metrics
             print_results(eval_metrics, "Validation Results")
         
-        if "test" in dataset:
+        # For GLUE tasks, don't evaluate on test set (labels are -1)
+        if "test" in dataset and not task_config.is_glue_task:
             test_metrics = trainer.evaluate(dataset_split="test")
             results["test"] = test_metrics
             print_results(test_metrics, "Test Results")
@@ -377,11 +378,23 @@ def main():
 
     if args.do_predict:
         logger.info("Generating predictions...")
-        predictions = trainer.predict(dataset_split="test")
         
-        np.save(os.path.join(output_dir, "predictions.npy"), predictions["predictions"])
-        save_results(predictions["metrics"], output_dir, "prediction_metrics.json")
-        print_results(predictions["metrics"], "Prediction Results")
+        # For GLUE tasks, generate submission files
+        if task_config.is_glue_task:
+            submission_files = trainer.generate_submission_files(output_dir=output_dir)
+            logger.info(f"Generated {len(submission_files)} submission file(s)")
+            for split_name, file_path in submission_files.items():
+                logger.info(f"  {split_name}: {file_path}")
+            
+            # Save submission file paths to results
+            results["submission_files"] = submission_files
+        else:
+            # For non-GLUE tasks, just save predictions
+            predictions = trainer.predict(dataset_split="test")
+            
+            np.save(os.path.join(output_dir, "predictions.npy"), predictions["predictions"])
+            save_results(predictions["metrics"], output_dir, "prediction_metrics.json")
+            print_results(predictions["metrics"], "Prediction Results")
     
     if results:
         save_results(results, output_dir, "final_results.json")
