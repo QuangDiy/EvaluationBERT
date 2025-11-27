@@ -2,7 +2,7 @@
 
 MODEL="${MODEL:-QuangDuy/modernbert-tiny-checkpoint-55000ba}"
 EPOCHS="${EPOCHS:-3}"
-TRAIN_BATCH="${TRAIN_BATCH:-16}"
+TRAIN_BATCH="${TRAIN_BATCH:-32}"
 SEED="${SEED:-42}"
 
 MODEL_NAME=$(basename "$MODEL")
@@ -22,14 +22,14 @@ GLUE_TASKS=(mnli qnli rte wnli sst2 qqp stsb cola mrpc)
 TASKS_WITH_TEST=(vsfc vsmec)
 TASKS_NO_TEST=(vnrte vtoc)
 
-# Train and evaluate GLUE tasks
-for task in "${GLUE_TASKS[@]}"; do
-    echo "Training $task (GLUE task)"
+# Train and test tasks without test set (use validation as test)
+for task in "${TASKS_NO_TEST[@]}"; do
+    echo "Training $task (validation as test)"
     python ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \
-        --do_eval \
+        --use_validation_as_test \
         --num_train_epochs $EPOCHS \
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
@@ -52,22 +52,17 @@ for task in "${TASKS_WITH_TEST[@]}"; do
         --overwrite_output_dir
 done
 
-# Train and test tasks without test set (use validation as test)
-for task in "${TASKS_NO_TEST[@]}"; do
-    echo "Training $task (validation as test)"
+# Train and evaluate GLUE tasks
+for task in "${GLUE_TASKS[@]}"; do
+    echo "Training $task (GLUE task)"
     python ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \
-        --use_validation_as_test \
+        --do_eval \
         --num_train_epochs $EPOCHS \
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
         --output_dir "$RESULTS_DIR/$task" \
         --overwrite_output_dir
 done
-
-echo "=========================================="
-echo "All tasks completed!"
-echo "Results saved to: $RESULTS_DIR"
-echo "=========================================="

@@ -275,7 +275,6 @@ def main():
         do_train=args.do_train,
         do_eval=args.do_eval,
         do_predict=args.do_predict,
-        do_predict=args.do_predict,
         overwrite_output_dir=args.overwrite_output_dir,
         save_model=not args.no_save_model,
     )
