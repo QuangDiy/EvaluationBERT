@@ -111,7 +111,9 @@ class ViGLUETrainer:
     def _create_trainer(self) -> Trainer:
         """Create HuggingFace Trainer."""
         callbacks = []
-        if self.training_config.early_stopping_patience > 0:
+        # Only add early stopping if we're doing evaluation during training
+        if (self.training_config.early_stopping_patience > 0 and 
+            self.training_args.eval_strategy != "no"):
             callbacks.append(
                 EarlyStoppingCallback(
                     early_stopping_patience=self.training_config.early_stopping_patience,
