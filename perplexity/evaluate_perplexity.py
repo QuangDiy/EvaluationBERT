@@ -6,16 +6,7 @@ from tqdm import tqdm
 import math
 
 def calculate_pseudo_perplexity(model, tokenizer, dataset, num_samples=100, max_seq_len=None):
-    """
-    Calculates pseudo-perplexity for a dataset.
-    
-    For each sequence, we compute pseudo-perplexity by randomly sampling 100 token
-    positions with replacement, computing the masked language modeling (MLM) loss 
-    at each position, and averaging the results.
-    The pseudo-perplexity is defined as P = exp(1/n * sum(li)).
-    """
     model.eval()
-    # device is handled by device_map="auto" in main, or we check model.device
     device = model.device
     
     total_log_perplexity = 0
@@ -23,44 +14,33 @@ def calculate_pseudo_perplexity(model, tokenizer, dataset, num_samples=100, max_
     
     print(f"Starting evaluation on {device}...")
     
-    # Iterate over the dataset
-    # Assuming dataset yields items with 'input_ids'
     for i, example in tqdm(enumerate(dataset), desc="Evaluating sequences"):
         input_ids = example['input_ids']
         
-        # Convert to tensor if not already
         if not isinstance(input_ids, torch.Tensor):
             input_ids = torch.tensor(input_ids)
         
-        # Ensure 1D tensor
         if input_ids.dim() > 1:
             input_ids = input_ids.squeeze()
             
         seq_len = len(input_ids)
         
-        # Skip very short sequences if necessary
         if seq_len == 0:
             continue
             
-        # Sample 100 positions with replacement
         indices_to_mask = np.random.choice(seq_len, num_samples, replace=True)
         
-        # Batching
-        # Create 100 copies of input_ids
-        batch_input_ids = input_ids.repeat(num_samples, 1) # (100, seq_len)
-        batch_labels = torch.full(batch_input_ids.shape, -100) # (100, seq_len)
+        batch_input_ids = input_ids.repeat(num_samples, 1)
+        batch_labels = torch.full(batch_input_ids.shape, -100)
         
-        # Apply masking
         for batch_idx, token_idx in enumerate(indices_to_mask):
             original_token = batch_input_ids[batch_idx, token_idx].item()
             batch_input_ids[batch_idx, token_idx] = tokenizer.mask_token_id
             batch_labels[batch_idx, token_idx] = original_token
             
-        # Move to device
         batch_input_ids = batch_input_ids.to(device)
         batch_labels = batch_labels.to(device)
         
-        # Forward pass
         sample_batch_size = 16
         seq_loss_sum = 0
         
@@ -74,25 +54,13 @@ def calculate_pseudo_perplexity(model, tokenizer, dataset, num_samples=100, max_
                 current_batch_size = mini_input.size(0)
                 seq_loss_sum += outputs.loss.item() * current_batch_size
         
-        # Average loss for this sequence
         avg_seq_loss = seq_loss_sum / num_samples
-        
-        # Pseudo-perplexity for this sequence
         ppl = math.exp(avg_seq_loss)
         
-        total_log_perplexity += avg_seq_loss # Accumulate average loss?
-        # Wait, previous logic was accumulating PPL?
-        # "The pseudo-perplexity is defined as P = exp(1/n * sum(li))"
-        # This is per sequence. 
-        # I will return the average PPL across sequences.
-        
-        # Let's accumulate PPL
-        # Note: variable name total_log_perplexity is misleading if I accumulate PPL.
-        # I'll fix the variable usage in the loop below.
-        
+        total_log_perplexity += avg_seq_loss
         count += 1
 
-    return 0 # Unused, main loop handles logic
+    return 0
 
 def main():
     model_name = "QuangDuy/modernbert-tiny-checkpoint-55000ba"
@@ -100,26 +68,127 @@ def main():
     
     print(f"Loading model: {model_name}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # Use device_map="auto" to handle device placement and avoid meta tensor issues
-    try:
-        # Try loading with device_map="auto" (requires accelerate)
-        model = AutoModelForMaskedLM.from_pretrained(model_name, device_map="auto")
-    except Exception as e:
-        print(f"Failed to load with device_map='auto': {e}")
-        print("Falling back to standard load (low_cpu_mem_usage=False)...")
-        # Explicitly disable low_cpu_mem_usage and set device_map=None to avoid meta device
-        model = AutoModelForMaskedLM.from_pretrained(
-            model_name, 
-            low_cpu_mem_usage=False,
-            device_map=None, 
-            torch_dtype=torch.float32
-        )
-        print(f"Model loaded on: {model.device}")
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
     
+    from transformers import AutoConfig
+    from huggingface_hub import hf_hub_download
+    from safetensors.torch import load_file
+    import os
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Target device: {device}")
+    
+    config = AutoConfig.from_pretrained(model_name)
+    model = AutoModelForMaskedLM.from_config(config)
+    model = model.to(device)
+    
+    weights_file = hf_hub_download(repo_id=model_name, filename="model.safetensors")
+    checkpoint_state_dict = load_file(weights_file)
+    
+    model_state_dict = model.state_dict()
+    checkpoint_keys = set(checkpoint_state_dict.keys())
+    model_keys = set(model_state_dict.keys())
+    
+    new_state_dict = {}
+    
+    for model_key in model_keys:
+        if model_key in checkpoint_keys:
+            new_state_dict[model_key] = checkpoint_state_dict[model_key]
+        else:
+            possible_mappings = [
+                model_key.replace('model.', ''),
+                f'model.{model_key}',
+                model_key.replace('embeddings.tok_embeddings', 'embeddings.word_embeddings'),
+                model_key.replace('embeddings.word_embeddings', 'embeddings.tok_embeddings'),
+                model_key.replace('bert.', 'model.'),
+                model_key.replace('model.', 'bert.'),
+            ]
+            
+            found = False
+            for possible_key in possible_mappings:
+                if possible_key in checkpoint_keys:
+                    new_state_dict[model_key] = checkpoint_state_dict[possible_key]
+                    found = True
+                    break
+            
+            if not found:
+                new_state_dict[model_key] = model_state_dict[model_key]
+    
+    model.load_state_dict(new_state_dict, strict=False)
+    
+    if hasattr(model, 'tie_weights'):
+        model.tie_weights()
     print(f"Loading dataset: {dataset_name}")
-    dataset = load_dataset(dataset_name, split="train")
+    
+    try:
+        from streaming import StreamingDataset
+        from huggingface_hub import hf_hub_download
+        import os
+        
+        print("Attempting to load as MDS format (MosaicML streaming dataset)...")
+        
+        print("Downloading MDS index and shard files...")
+        local_cache_dir = "./mds_cache"
+        os.makedirs(local_cache_dir, exist_ok=True)
+        
+        index_file = hf_hub_download(
+            repo_id=dataset_name,
+            filename="index.json",
+            repo_type="dataset",
+            local_dir=local_cache_dir
+        )
+        
+        shard_file = hf_hub_download(
+            repo_id=dataset_name,
+            filename="shard.00000.mds.zstd",
+            repo_type="dataset",
+            local_dir=local_cache_dir
+        )
+        
+        print(f"Downloaded MDS files to {local_cache_dir}")
+        
+        print("Loading dataset from local MDS files...")
+        dataset = StreamingDataset(
+            local=local_cache_dir,
+            shuffle=False,
+            batch_size=1
+        )
+        print(f"Loaded MDS dataset with {len(dataset)} samples")
+        is_mds_format = True
+        
+    except ImportError:
+        print("streaming library not found. Trying standard datasets library...")
+        is_mds_format = False
+        dataset = load_dataset(dataset_name, split="train")
+        
+    except Exception as e:
+        print(f"Failed to load as MDS format: {e}")
+        print("Falling back to standard datasets library...")
+        is_mds_format = False
+        dataset = load_dataset(dataset_name, split="train")
+    
+    print(f"Dataset size: {len(dataset)}")
+    needs_tokenization = False
+    
+    if len(dataset) > 0:
+        first_example = dataset[0]
+        print(f"First example keys: {list(first_example.keys())}")
+        
+        if 'input_ids' in first_example:
+            input_key = 'input_ids'
+        elif 'tokens' in first_example:
+            input_key = 'tokens'
+        elif 'token_ids' in first_example:
+            input_key = 'token_ids'
+        elif 'text' in first_example:
+            print("Dataset contains 'text' field. Tokenizing on-the-fly...")
+            input_key = 'text'
+            needs_tokenization = True
+        else:
+            raise ValueError(f"Could not find input_ids field. Available keys: {list(first_example.keys())}")
+    else:
+        raise ValueError("Dataset is empty!")
+    
+    print(f"Using field '{input_key}' for input data")
     
     print("Starting calculation...")
     
@@ -127,15 +196,25 @@ def main():
     num_sequences = 0
     
     model.eval()
-    device = model.device # Get the device the model is on
+    device = model.device
     
     num_samples = 100
     sample_batch_size = 32
     
     for i, example in tqdm(enumerate(dataset), total=len(dataset)):
-        input_ids = example['input_ids']
+        if needs_tokenization:
+            text = example[input_key]
+            encoded = tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
+            input_ids = encoded['input_ids'].squeeze()
+        else:
+            input_ids = example[input_key]
+            
         if not isinstance(input_ids, torch.Tensor):
             input_ids = torch.tensor(input_ids)
+        
+        if input_ids.dtype != torch.int64:
+            input_ids = input_ids.long()
+            
         if input_ids.dim() > 1:
             input_ids = input_ids.squeeze()
             
@@ -143,10 +222,8 @@ def main():
         if seq_len == 0:
             continue
             
-        # Sample 100 positions
         indices_to_mask = np.random.choice(seq_len, num_samples, replace=True)
         
-        # Batching
         batch_input_ids = input_ids.repeat(num_samples, 1)
         batch_labels = torch.full(batch_input_ids.shape, -100)
         
