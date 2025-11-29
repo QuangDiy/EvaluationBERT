@@ -198,7 +198,20 @@ def main():
     device = model.device
     
     num_samples = 100  
-    sample_batch_size = 8  
+
+    def get_adaptive_batch_size(seq_length):
+        """
+        Returns appropriate batch size based on sequence length.
+        Shorter sequences can use larger batches, longer sequences need smaller batches.
+        """
+        if seq_length <= 512:
+            return 16  
+        elif seq_length <= 1024:
+            return 8  
+        elif seq_length <= 2048:
+            return 8   
+        else:
+            return 4  
     
     for i, example in tqdm(enumerate(dataset), total=len(dataset)):
         if needs_tokenization:
@@ -220,6 +233,8 @@ def main():
         seq_len = len(input_ids)
         if seq_len == 0:
             continue
+        
+        sample_batch_size = get_adaptive_batch_size(seq_len)
             
         indices_to_mask = np.random.choice(seq_len, num_samples, replace=True)
         
