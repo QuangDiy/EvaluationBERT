@@ -4,6 +4,7 @@ from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
 import math
+from streaming import StreamingDataset
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 import os
@@ -119,9 +120,6 @@ def main():
     print(f"Loading dataset: {dataset_name}")
     
     try:
-        from streaming import StreamingDataset
-        from huggingface_hub import hf_hub_download
-        import os
         
         print("Attempting to load as MDS format (MosaicML streaming dataset)...")
         
