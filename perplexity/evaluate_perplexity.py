@@ -1,9 +1,13 @@
 import torch
-from transformers import AutoModelForMaskedLM, AutoTokenizer
+from transformers import AutoModelForMaskedLM, AutoTokenizer, AutoConfig
 from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
 import math
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
+import os
+import json
 
 def calculate_pseudo_perplexity(model, tokenizer, dataset, num_samples=100, max_seq_len=None):
     model.eval()
@@ -68,11 +72,6 @@ def main():
     
     print(f"Loading model: {model_name}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    
-    from transformers import AutoConfig
-    from huggingface_hub import hf_hub_download
-    from safetensors.torch import load_file
-    import os
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Target device: {device}")
@@ -195,11 +194,13 @@ def main():
     total_ppl = 0
     num_sequences = 0
     
+    results_data = []
+    
     model.eval()
     device = model.device
     
-    num_samples = 100
-    sample_batch_size = 32
+    num_samples = 100  
+    sample_batch_size = 8  
     
     for i, example in tqdm(enumerate(dataset), total=len(dataset)):
         if needs_tokenization:
@@ -250,8 +251,58 @@ def main():
         total_ppl += ppl
         num_sequences += 1
         
+        results_data.append({
+            "sequence_index": i,
+            "sequence_length": seq_len,
+            "pseudo_perplexity": float(ppl),
+            "average_loss": float(avg_seq_loss)
+        })
+        
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
+        
     avg_ppl = total_ppl / num_sequences if num_sequences > 0 else 0.0
     print(f"\nAverage Pseudo-Perplexity: {avg_ppl:.4f}")
+    
+    seq_lengths = [item["sequence_length"] for item in results_data]
+    ppl_values = [item["pseudo_perplexity"] for item in results_data]
+    
+    results = {
+        "model_name": model_name,
+        "dataset_name": dataset_name,
+        "evaluation_config": {
+            "num_samples_per_sequence": num_samples,
+            "sample_batch_size": sample_batch_size,
+            "total_sequences_evaluated": num_sequences
+        },
+        "summary_statistics": {
+            "average_pseudo_perplexity": float(avg_ppl),
+            "min_perplexity": float(min(ppl_values)) if ppl_values else 0.0,
+            "max_perplexity": float(max(ppl_values)) if ppl_values else 0.0,
+            "median_perplexity": float(np.median(ppl_values)) if ppl_values else 0.0,
+            "std_perplexity": float(np.std(ppl_values)) if ppl_values else 0.0,
+            "min_sequence_length": int(min(seq_lengths)) if seq_lengths else 0,
+            "max_sequence_length": int(max(seq_lengths)) if seq_lengths else 0,
+            "mean_sequence_length": float(np.mean(seq_lengths)) if seq_lengths else 0.0,
+            "median_sequence_length": float(np.median(seq_lengths)) if seq_lengths else 0.0
+        },
+        "per_sequence_results": results_data
+    }
+    
+    output_filename = "perplexity_evaluation_results.json"
+    with open(output_filename, 'w', encoding='utf-8') as f:
+        json.dump(results, f, indent=2, ensure_ascii=False)
+    
+    print(f"\nResults saved to '{output_filename}'")
+    print(f"\nSummary Statistics:")
+    print(f"  Total sequences evaluated: {num_sequences}")
+    print(f"  Average perplexity: {avg_ppl:.4f}")
+    print(f"  Min perplexity: {min(ppl_values):.4f}")
+    print(f"  Max perplexity: {max(ppl_values):.4f}")
+    print(f"  Median perplexity: {np.median(ppl_values):.4f}")
+    print(f"  Std perplexity: {np.std(ppl_values):.4f}")
+    print(f"  Sequence length range: {min(seq_lengths)} - {max(seq_lengths)} tokens")
+    print(f"  Mean sequence length: {np.mean(seq_lengths):.2f} tokens")
 
 if __name__ == "__main__":
     main()
