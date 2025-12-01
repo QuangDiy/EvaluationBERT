@@ -243,7 +243,7 @@ def main():
     else:
         raise ValueError("Dataset is empty!")
     
-    print(f"Using field '{input_key}' for input data}")
+    print(f"Using field '{input_key}' for input data")
     
     print("Starting calculation...")
     
