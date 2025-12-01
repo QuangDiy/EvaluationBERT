@@ -32,6 +32,24 @@ GLUE_TASKS=(mnli qnli rte wnli sst2 qqp cola mrpc)
 TASKS_WITH_TEST=(vsfc vsmec)
 TASKS_NO_TEST=(vnrte vtoc)
 
+for task in "${GLUE_TASKS[@]}"; do
+    echo "Training $task (GLUE task - will generate submission files) on $NUM_GPUS GPUs"
+    torchrun \
+        --nproc_per_node=$NUM_GPUS \
+        "$PROJECT_ROOT/ViGLUE/run_viglue.py" \
+        --task $task \
+        --model_name_or_path $MODEL \
+        --do_train \
+        --do_predict \
+        --num_train_epochs $EPOCHS \
+        --per_device_train_batch_size $TRAIN_BATCH \
+        --seed $SEED \
+        --output_dir "$RESULTS_DIR/$task" \
+        --overwrite_output_dir \
+        --no_save_model \
+        --no_timestamp_dir
+done
+
 for task in "${TASKS_NO_TEST[@]}"; do
     echo "Training $task (validation as test) on $NUM_GPUS GPUs"
     torchrun \
@@ -50,7 +68,6 @@ for task in "${TASKS_NO_TEST[@]}"; do
         --no_timestamp_dir
 done
 
-# Train and evaluate tasks with test set
 for task in "${TASKS_WITH_TEST[@]}"; do
     echo "Training $task (with test set) on $NUM_GPUS GPUs"
     torchrun \
@@ -60,25 +77,6 @@ for task in "${TASKS_WITH_TEST[@]}"; do
         --model_name_or_path $MODEL \
         --do_train \
         --do_eval \
-        --num_train_epochs $EPOCHS \
-        --per_device_train_batch_size $TRAIN_BATCH \
-        --seed $SEED \
-        --output_dir "$RESULTS_DIR/$task" \
-        --overwrite_output_dir \
-        --no_save_model \
-        --no_timestamp_dir
-done
-
-# Train and generate predictions for GLUE tasks
-for task in "${GLUE_TASKS[@]}"; do
-    echo "Training $task (GLUE task - will generate submission files) on $NUM_GPUS GPUs"
-    torchrun \
-        --nproc_per_node=$NUM_GPUS \
-        "$PROJECT_ROOT/ViGLUE/run_viglue.py" \
-        --task $task \
-        --model_name_or_path $MODEL \
-        --do_train \
-        --do_predict \
         --num_train_epochs $EPOCHS \
         --per_device_train_batch_size $TRAIN_BATCH \
         --seed $SEED \
