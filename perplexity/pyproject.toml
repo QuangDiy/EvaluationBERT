@@ -1,0 +1,46 @@
+[project]
+name = "perplexity-evaluation"
+version = "0.1.0"
+description = "Pseudo-perplexity evaluation for masked language models"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "transformers>=4.48.0",
+    "datasets>=2.0.0",
+    "torch>=2.0.0",
+    "scipy>=1.10.0",
+    "pandas>=1.5.0",
+    "numpy>=1.23.0",
+    "tqdm>=4.65.0",
+    "accelerate>=0.20.6",
+    "mosaicml-streaming==0.7.6",
+    "huggingface-hub>=0.16.0",
+    "safetensors>=0.3.0",
+]
+
+[project.scripts]
+evaluate-perplexity = "evaluate_perplexity:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["evaluate_perplexity.py"]
+
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
