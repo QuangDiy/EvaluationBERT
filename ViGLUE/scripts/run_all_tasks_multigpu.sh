@@ -1,17 +1,21 @@
 #!/bin/bash
 
+NUM_GPUS="${NUM_GPUS:-2}"
 MODEL="${MODEL:-QuangDuy/modernbert-tiny-checkpoint-55000ba}"
 EPOCHS="${EPOCHS:-3}"
-TRAIN_BATCH="${TRAIN_BATCH:-32}"
+TRAIN_BATCH="${TRAIN_BATCH:-16}"
 SEED="${SEED:-42}"
 
 MODEL_NAME=$(basename "$MODEL")
 TIMESTAMP=$(date +"%Y%m%d_$SEED")
-RESULTS_DIR="${RESULTS_DIR:-./results/all_tasks_${MODEL_NAME}_${TIMESTAMP}}"
+RESULTS_DIR="${RESULTS_DIR:-./results/all_tasks_${MODEL_NAME}_${TIMESTAMP}_${NUM_GPUS}gpu}"
 
 echo "=========================================="
-echo "ViGLUE All Tasks Training"
+echo "ViGLUE All Tasks Training (Multi-GPU)"
 echo "Model: $MODEL"
+echo "GPUs: $NUM_GPUS"
+echo "Batch size per GPU: $TRAIN_BATCH"
+echo "Effective batch size: $((TRAIN_BATCH * NUM_GPUS))"
 echo "Output: $RESULTS_DIR"
 echo "=========================================="
 
@@ -19,15 +23,15 @@ mkdir -p "$RESULTS_DIR"
 SUBMISSION_DIR="$RESULTS_DIR/submissions"
 mkdir -p "$SUBMISSION_DIR"
 
-# Task categorization
 GLUE_TASKS=(mnli qnli rte wnli sst2 qqp cola mrpc)
 TASKS_WITH_TEST=(vsfc vsmec)
 TASKS_NO_TEST=(vnrte vtoc)
 
-# Train and test tasks without test set (use validation as test)
 for task in "${TASKS_NO_TEST[@]}"; do
-    echo "Training $task (validation as test)"
-    python ./ViGLUE/run_viglue.py \
+    echo "Training $task (validation as test) on $NUM_GPUS GPUs"
+    python -m torch.distributed.launch \
+        --nproc_per_node=$NUM_GPUS \
+        ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \
@@ -43,8 +47,10 @@ done
 
 # Train and evaluate tasks with test set
 for task in "${TASKS_WITH_TEST[@]}"; do
-    echo "Training $task (with test set)"
-    python ./ViGLUE/run_viglue.py \
+    echo "Training $task (with test set) on $NUM_GPUS GPUs"
+    python -m torch.distributed.launch \
+        --nproc_per_node=$NUM_GPUS \
+        ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \
@@ -60,8 +66,10 @@ done
 
 # Train and generate predictions for GLUE tasks
 for task in "${GLUE_TASKS[@]}"; do
-    echo "Training $task (GLUE task - will generate submission files)"
-    python ./ViGLUE/run_viglue.py \
+    echo "Training $task (GLUE task - will generate submission files) on $NUM_GPUS GPUs"
+    python -m torch.distributed.launch \
+        --nproc_per_node=$NUM_GPUS \
+        ./ViGLUE/run_viglue.py \
         --task $task \
         --model_name_or_path $MODEL \
         --do_train \
@@ -92,3 +100,8 @@ if ls "$SUBMISSION_DIR"/*.tsv 1> /dev/null 2>&1; then
     cd "$SUBMISSION_DIR" && zip -q submission.zip *.tsv && cd - > /dev/null
     echo "Submission zip created: $SUBMISSION_DIR/submission.zip"
 fi
+
+echo "=========================================="
+echo "All tasks completed!"
+echo "Results: $RESULTS_DIR"
+echo "=========================================="

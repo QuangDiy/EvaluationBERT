@@ -9,8 +9,95 @@ from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 import os
 import json
+import random
+
+
+def compute_pseudo_perplexity(input_ids, model, tokenizer, mask_num=100):
+    """
+    Compute pseudo-perplexity for a single sequence by randomly masking tokens.
+    
+    Args:
+        input_ids: Tensor of token IDs for the sequence
+        model: The masked language model
+        tokenizer: The tokenizer
+        mask_num: Number of random masks to sample
+        
+    Returns:
+        dict: Contains perplexity, average loss, loss std, loss variance, and individual losses
+    """
+    model.eval()
+    device = model.device
+    
+    if not isinstance(input_ids, torch.Tensor):
+        input_ids = torch.tensor(input_ids)
+    
+    if input_ids.dtype != torch.int64:
+        input_ids = input_ids.long()
+        
+    if input_ids.dim() > 1:
+        input_ids = input_ids.squeeze()
+    
+    seq_len = len(input_ids)
+    
+    if seq_len < 3:
+        return None
+    
+    vocab_size = tokenizer.vocab_size
+    if (input_ids >= vocab_size).any() or (input_ids < 0).any():
+        return None
+    
+    maskable_positions = list(range(1, seq_len - 1))
+    
+    if len(maskable_positions) == 0:
+        return None
+    
+    num_samples = min(mask_num, len(maskable_positions) * 10)
+    indices_to_mask = np.random.choice(maskable_positions, num_samples, replace=True)
+    
+    batch_input_ids = input_ids.repeat(num_samples, 1)
+    batch_labels = torch.full(batch_input_ids.shape, -100)
+    
+    for batch_idx, token_idx in enumerate(indices_to_mask):
+        original_token = batch_input_ids[batch_idx, token_idx].item()
+        batch_input_ids[batch_idx, token_idx] = tokenizer.mask_token_id
+        batch_labels[batch_idx, token_idx] = original_token
+    
+    batch_input_ids = batch_input_ids.to(device)
+    batch_labels = batch_labels.to(device)
+    
+    if seq_len <= 512:
+        sample_batch_size = 16
+    elif seq_len <= 1024:
+        sample_batch_size = 8
+    else:
+        sample_batch_size = 4
+    
+    loss_list = []
+    
+    with torch.no_grad():
+        for j in range(0, num_samples, sample_batch_size):
+            mini_input = batch_input_ids[j : j + sample_batch_size]
+            mini_labels = batch_labels[j : j + sample_batch_size]
+            
+            outputs = model(input_ids=mini_input, labels=mini_labels)
+            loss_list.append(outputs.loss.item())
+    
+    avg_loss = np.mean(loss_list)
+    loss_std = np.std(loss_list)
+    loss_var = np.var(loss_list)
+    perplexity = math.exp(avg_loss)
+    
+    return {
+        "perplexity": perplexity,
+        "average_loss": avg_loss,
+        "loss_std": loss_std,
+        "loss_variance": loss_var,
+        "loss_list": loss_list
+    }
+
 
 def calculate_pseudo_perplexity(model, tokenizer, dataset, num_samples=100, max_seq_len=None):
+    """Legacy function - kept for backwards compatibility"""
     model.eval()
     device = model.device
     
@@ -22,52 +109,23 @@ def calculate_pseudo_perplexity(model, tokenizer, dataset, num_samples=100, max_
     for i, example in tqdm(enumerate(dataset), desc="Evaluating sequences"):
         input_ids = example['input_ids']
         
-        if not isinstance(input_ids, torch.Tensor):
-            input_ids = torch.tensor(input_ids)
+        result = compute_pseudo_perplexity(input_ids, model, tokenizer, mask_num=num_samples)
         
-        if input_ids.dim() > 1:
-            input_ids = input_ids.squeeze()
-            
-        seq_len = len(input_ids)
-        
-        if seq_len == 0:
+        if result is None:
             continue
-            
-        indices_to_mask = np.random.choice(seq_len, num_samples, replace=True)
         
-        batch_input_ids = input_ids.repeat(num_samples, 1)
-        batch_labels = torch.full(batch_input_ids.shape, -100)
-        
-        for batch_idx, token_idx in enumerate(indices_to_mask):
-            original_token = batch_input_ids[batch_idx, token_idx].item()
-            batch_input_ids[batch_idx, token_idx] = tokenizer.mask_token_id
-            batch_labels[batch_idx, token_idx] = original_token
-            
-        batch_input_ids = batch_input_ids.to(device)
-        batch_labels = batch_labels.to(device)
-        
-        sample_batch_size = 16
-        seq_loss_sum = 0
-        
-        with torch.no_grad():
-            for j in range(0, num_samples, sample_batch_size):
-                mini_input = batch_input_ids[j : j + sample_batch_size]
-                mini_labels = batch_labels[j : j + sample_batch_size]
-                
-                outputs = model(input_ids=mini_input, labels=mini_labels)
-                
-                current_batch_size = mini_input.size(0)
-                seq_loss_sum += outputs.loss.item() * current_batch_size
-        
-        avg_seq_loss = seq_loss_sum / num_samples
-        ppl = math.exp(avg_seq_loss)
-        
-        total_log_perplexity += avg_seq_loss
+        total_log_perplexity += result["average_loss"]
         count += 1
 
     return 0
 
 def main():
+    random.seed(42)
+    np.random.seed(42)
+    torch.manual_seed(42)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(42)
+    
     model_name = "QuangDuy/modernbert-tiny-checkpoint-55000ba"
     dataset_name = "QuangDuy/FineWiki-mds-tokenized-samples"
     
@@ -185,7 +243,7 @@ def main():
     else:
         raise ValueError("Dataset is empty!")
     
-    print(f"Using field '{input_key}' for input data")
+    print(f"Using field '{input_key}' for input data}")
     
     print("Starting calculation...")
     
@@ -213,6 +271,8 @@ def main():
         else:
             return 4  
     
+    skipped_sequences = 0
+    
     for i, example in tqdm(enumerate(dataset), total=len(dataset)):
         if needs_tokenization:
             text = example[input_key]
@@ -220,55 +280,28 @@ def main():
             input_ids = encoded['input_ids'].squeeze()
         else:
             input_ids = example[input_key]
-            
-        if not isinstance(input_ids, torch.Tensor):
-            input_ids = torch.tensor(input_ids)
         
-        if input_ids.dtype != torch.int64:
-            input_ids = input_ids.long()
-            
-        if input_ids.dim() > 1:
-            input_ids = input_ids.squeeze()
-            
-        seq_len = len(input_ids)
-        if seq_len == 0:
+        result = compute_pseudo_perplexity(input_ids, model, tokenizer, mask_num=num_samples)
+        
+        if result is None:
+            skipped_sequences += 1
             continue
         
-        sample_batch_size = get_adaptive_batch_size(seq_len)
-            
-        indices_to_mask = np.random.choice(seq_len, num_samples, replace=True)
-        
-        batch_input_ids = input_ids.repeat(num_samples, 1)
-        batch_labels = torch.full(batch_input_ids.shape, -100)
-        
-        for batch_idx, token_idx in enumerate(indices_to_mask):
-            original_token = batch_input_ids[batch_idx, token_idx].item()
-            batch_input_ids[batch_idx, token_idx] = tokenizer.mask_token_id
-            batch_labels[batch_idx, token_idx] = original_token
-            
-        batch_input_ids = batch_input_ids.to(device)
-        batch_labels = batch_labels.to(device)
-        
-        seq_loss_sum = 0
-        
-        with torch.no_grad():
-            for j in range(0, num_samples, sample_batch_size):
-                mini_input = batch_input_ids[j : j + sample_batch_size]
-                mini_labels = batch_labels[j : j + sample_batch_size]
-                outputs = model(input_ids=mini_input, labels=mini_labels)
-                seq_loss_sum += outputs.loss.item() * mini_input.size(0)
-        
-        avg_seq_loss = seq_loss_sum / num_samples
-        ppl = math.exp(avg_seq_loss)
+        ppl = result["perplexity"]
+        avg_seq_loss = result["average_loss"]
+        loss_std = result["loss_std"]
+        loss_var = result["loss_variance"]
         
         total_ppl += ppl
         num_sequences += 1
         
         results_data.append({
             "sequence_index": i,
-            "sequence_length": seq_len,
+            "sequence_length": len(input_ids) if isinstance(input_ids, torch.Tensor) else len(torch.tensor(input_ids)),
             "pseudo_perplexity": float(ppl),
-            "average_loss": float(avg_seq_loss)
+            "average_loss": float(avg_seq_loss),
+            "loss_std": float(loss_std),
+            "loss_variance": float(loss_var)
         })
         
         if device.type == 'cuda':
@@ -276,17 +309,21 @@ def main():
         
     avg_ppl = total_ppl / num_sequences if num_sequences > 0 else 0.0
     print(f"\nAverage Pseudo-Perplexity: {avg_ppl:.4f}")
+    print(f"Skipped sequences (too short or invalid): {skipped_sequences}")
     
     seq_lengths = [item["sequence_length"] for item in results_data]
     ppl_values = [item["pseudo_perplexity"] for item in results_data]
+    loss_stds = [item["loss_std"] for item in results_data]
+    loss_vars = [item["loss_variance"] for item in results_data]
     
     results = {
         "model_name": model_name,
         "dataset_name": dataset_name,
         "evaluation_config": {
             "num_samples_per_sequence": num_samples,
-            "sample_batch_size": sample_batch_size,
-            "total_sequences_evaluated": num_sequences
+            "total_sequences_evaluated": num_sequences,
+            "skipped_sequences": skipped_sequences,
+            "random_seed": 42
         },
         "summary_statistics": {
             "average_pseudo_perplexity": float(avg_ppl),
@@ -297,7 +334,9 @@ def main():
             "min_sequence_length": int(min(seq_lengths)) if seq_lengths else 0,
             "max_sequence_length": int(max(seq_lengths)) if seq_lengths else 0,
             "mean_sequence_length": float(np.mean(seq_lengths)) if seq_lengths else 0.0,
-            "median_sequence_length": float(np.median(seq_lengths)) if seq_lengths else 0.0
+            "median_sequence_length": float(np.median(seq_lengths)) if seq_lengths else 0.0,
+            "mean_loss_std": float(np.mean(loss_stds)) if loss_stds else 0.0,
+            "mean_loss_variance": float(np.mean(loss_vars)) if loss_vars else 0.0
         },
         "per_sequence_results": results_data
     }
@@ -309,6 +348,7 @@ def main():
     print(f"\nResults saved to '{output_filename}'")
     print(f"\nSummary Statistics:")
     print(f"  Total sequences evaluated: {num_sequences}")
+    print(f"  Skipped sequences: {skipped_sequences}")
     print(f"  Average perplexity: {avg_ppl:.4f}")
     print(f"  Min perplexity: {min(ppl_values):.4f}")
     print(f"  Max perplexity: {max(ppl_values):.4f}")
@@ -316,6 +356,8 @@ def main():
     print(f"  Std perplexity: {np.std(ppl_values):.4f}")
     print(f"  Sequence length range: {min(seq_lengths)} - {max(seq_lengths)} tokens")
     print(f"  Mean sequence length: {np.mean(seq_lengths):.2f} tokens")
+    print(f"  Mean loss std: {np.mean(loss_stds):.4f}")
+    print(f"  Mean loss variance: {np.mean(loss_vars):.4f}")
 
 if __name__ == "__main__":
     main()
