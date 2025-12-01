@@ -212,6 +212,12 @@ def parse_args():
         action="store_true",
         help="Do not create timestamped subdirectory, use output_dir directly"
     )
+    parser.add_argument(
+        "--local_rank",
+        type=int,
+        default=-1,
+        help="Local rank for distributed training (automatically set by torchrun)"
+    )
     
     args = parser.parse_args()
 
@@ -233,6 +239,16 @@ def set_seed(seed: int):
 def main():
     """Main function."""
     args = parse_args()
+    
+    # Setup distributed training if needed
+    if args.local_rank != -1:
+        # Initialize distributed training
+        torch.cuda.set_device(args.local_rank)
+        torch.distributed.init_process_group(backend='nccl')
+        # Only log from main process
+        if args.local_rank not in [-1, 0]:
+            import logging
+            logging.getLogger().setLevel(logging.WARNING)
     
     set_seed(args.seed)
     

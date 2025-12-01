@@ -34,7 +34,7 @@ TASKS_NO_TEST=(vnrte vtoc)
 
 for task in "${TASKS_NO_TEST[@]}"; do
     echo "Training $task (validation as test) on $NUM_GPUS GPUs"
-    python -m torch.distributed.launch \
+    torchrun \
         --nproc_per_node=$NUM_GPUS \
         "$PROJECT_ROOT/ViGLUE/run_viglue.py" \
         --task $task \
@@ -53,7 +53,7 @@ done
 # Train and evaluate tasks with test set
 for task in "${TASKS_WITH_TEST[@]}"; do
     echo "Training $task (with test set) on $NUM_GPUS GPUs"
-    python -m torch.distributed.launch \
+    torchrun \
         --nproc_per_node=$NUM_GPUS \
         "$PROJECT_ROOT/ViGLUE/run_viglue.py" \
         --task $task \
@@ -72,7 +72,7 @@ done
 # Train and generate predictions for GLUE tasks
 for task in "${GLUE_TASKS[@]}"; do
     echo "Training $task (GLUE task - will generate submission files) on $NUM_GPUS GPUs"
-    python -m torch.distributed.launch \
+    torchrun \
         --nproc_per_node=$NUM_GPUS \
         "$PROJECT_ROOT/ViGLUE/run_viglue.py" \
         --task $task \
