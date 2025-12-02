@@ -263,8 +263,14 @@ class ViGLUETrainer:
             logger.info(f"Generating predictions for {split_name}")
             predict_dataset = self.dataset[split_name]
             
+            columns_to_remove = []
             if "label" in predict_dataset.column_names:
-                predict_dataset = predict_dataset.remove_columns(["label"])
+                columns_to_remove.append("label")
+            if "labels" in predict_dataset.column_names:
+                columns_to_remove.append("labels")
+            
+            if columns_to_remove:
+                predict_dataset = predict_dataset.remove_columns(columns_to_remove)
             
             predictions = self.trainer.predict(predict_dataset)
             
