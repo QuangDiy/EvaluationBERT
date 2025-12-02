@@ -4,7 +4,7 @@
 
 ### Evaluation Results
 
-<table style="font-family: 'Times New Roman', Times, serif;">
+<table>
 <thead>
 <tr>
 <th rowspan="2" style="text-align:center; vertical-align:middle;">Model</th>
@@ -42,7 +42,7 @@
 </tr>
 </thead>
 <tbody>
-<tr><td colspan="18" style="font-weight: bold; text-align:center;">Baseline</td></tr>
+<tr><td colspan="18" style="font-weight: bold; text-align:center;">Pretrained-only</td></tr>
 <tr>
 <td><strong>QuangDuy/modernbert-tiny-checkpoint-55000ba</strong></td>
 <td style="text-align:center">34M</td>
@@ -123,7 +123,7 @@
 <td style="text-align:center">2.7</td>
 <td style="text-align:center">7.31</td>
 </tr>
-<tr><td colspan="18" style="font-weight: bold; text-align:center;">Downstream task</td></tr>
+<tr><td colspan="18" style="font-weight: bold; text-align:center;">Fine-tuned</td></tr>
 <tr>
 <td><strong>QuangDuy/modernbert-tiny-checkpoint-55000ba</strong></td>
 <td style="text-align:center">34M</td>
